@@ -1,0 +1,181 @@
+---
+title: "Airbnb Final Assignment"
+author: "Riya Malpani"
+date: '2022-12-13'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r dataread, echo= FALSE}
+
+library(ggplot2)
+library(openxlsx)
+library(visdat)
+library(corrplot)
+library(forcats)
+library(dplyr)
+
+setwd("/Users/riyamalpani/Desktop/Business Capstone")
+
+df_ab <-read.xlsx("Airbnb_Open_Data.xlsx")
+
+str(df_ab)
+
+vis_miss(df_ab, warn_large_data = F)
+```
+First,I checked the summary statistics of the data and then checked missing values and I found 
+4.7% missing values in one variable.
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r datasort, echo= FALSE}
+#Exploratory Data Analysis
+cleanup =theme(panel.grid.major =element_blank(),
+               panel.grid.minor =element_blank(), 
+               panel.background =element_blank(), 
+               axis.line.x =element_line(color ="black"),
+               axis.line.y =element_line(color ="black"),
+               legend.key =element_rect(fill ="white"),
+               text =element_text(size =15))
+#Distribution of price
+par(mfrow=c(2,1))
+ggplot(df_ab) + 
+  geom_histogram(aes(price),fill = 'Purple',alpha = 0.85,binwidth = 25) + 
+  theme_minimal(base_size = 13) + xlab("Price") + ylab("Frequency") + 
+  ggtitle("The Distrubition of Price") 
+
+
+```
+```{r correlation, echo= FALSE}
+#Correlation matrix
+
+df_ab_cor <- df_ab[, sapply(df_ab, is.numeric)]
+df_ab_cor <- df_ab_cor[complete.cases(df_ab_cor), ]
+correlation_matrix <- cor(df_ab_cor, method = "spearman")
+corrplot(correlation_matrix, method = "color", pch=20) 
+
+```
+      
+      The Spearman is a method of testing the positive or negative of the correlation between two variables.
+      
+       
+```{r plot1, echo= FALSE}
+#Average Price by room type
+
+par(mfrow=c(1,2))
+ggplot(df_ab, aes(x = room.type, y = price, fill = room.type))+
+  cleanup +
+  geom_bar(stat = "identity") + theme_minimal()+
+  labs(title = "Average price by Room type",
+       x = "Room Type", y = "Price") 
+
+```
+
+
+```{r plot2, echo= FALSE}
+
+#Average Price each Neighbourhood_group
+ggplot(df_ab, aes(x = fct_infreq(neighbourhood.group), y = price, fill = neighbourhood.group))+
+  geom_bar(stat = "identity")+
+  labs(title = "Average price each Neighborhood Group",
+       x = "Neighbourhood Group", y = "Price") +
+  theme(legend.position = "right")
+
+```
+
+
+```{r plot3, echo= FALSE}
+#Property types in Neighborhood Group 
+ggplot(df_ab, aes(x = fct_infreq(neighbourhood.group), fill= room.type))+
+  geom_bar()+
+  cleanup+
+  labs(title = "Property types in Neighbourhood_group ",
+       x = "Neighbourhood Group", y = "No. of listings") +
+  cleanup+scale_fill_manual(name = "Property Types", 
+                            labels = c("Entire House", "Private Room", "Shared Room","Hotel Room"), 
+                            values = c("deeppink3", "hotpink", "pink","Purple"))
+
+```
+  
+  In the above first graph,Home/apt have higher average price that can conclude private room, shared have second low average price for per night and in Hotel have the lowest average price per night . In the 2nd graph, property is distributed in neighborhood groups and 3rd graph shows average price within each neighborhood groups. Manhattan and Brooklyn have higher average per night price than other neighborhood groups.
+  
+
+```{r plot4, echo= FALSE}
+#Relation between price and number of reviews 
+ggplot(df_ab, aes(number.of.reviews, price)) +
+  theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_point(aes(size = price), alpha = 0.10, color = "red") +
+  xlab("Number of reviews") +
+  ylab("Price") +
+  ggtitle("Relationship between number of reviews")
+```
+
+
+```{r plot5, echo= FALSE}
+#Top 10 Neighbourhood
+
+df_ab %>%
+  group_by(neighbourhood) %>%
+  dplyr::summarize(num_listings = n(), 
+                   borough = unique(neighbourhood)) %>%
+  top_n(n = 10, wt = num_listings) %>%
+  ggplot(aes(x = fct_reorder(neighbourhood, num_listings), 
+             y = num_listings, fill = borough)) +
+  geom_col() +
+  coord_flip() +
+  theme(legend.position = "bottom") +
+  labs(title = "Top 10 neighbourhoods",
+       x = "Neighborhood", y = "No. of listings")
+
+
+```
+
+
+
+```{r data cleaning, echo= FALSE}
+
+#Data cleaning
+apply(df_ab,2,function(x) sum(is.na(x)))
+```
+
+
+
+```{r mean, echo= FALSE}
+#Mean imputation
+df_ab$price[is.na(df_ab$price)] <- mean(df_ab$price, na.rm = TRUE)
+summary(df_ab$price)
+
+```
+
+
+```{r summary, echo= FALSE}
+#Model
+
+df_ab$price[df_ab$price == 0]<- 1
+
+set.seed(123)
+smp_siz = floor(0.75*nrow(df_ab)) 
+train_ind = sample(seq_len(nrow(df_ab)),size = smp_siz)
+train =df_ab[train_ind,]
+test=df_ab[-train_ind,]
+
+model<- lm(log(price)~ minimum.nights+number.of.reviews+Construction.year+availability.365, data = train)
+summary(model)
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#### **End **
